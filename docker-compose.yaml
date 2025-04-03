@@ -1,0 +1,12 @@
+services:
+  bot:
+    image: mustage_bot
+    build: .
+    container_name: mustage_bot
+    restart: always
+    command: "uv run python -m src.main"
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports

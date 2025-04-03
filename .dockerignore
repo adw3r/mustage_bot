@@ -1,0 +1,9 @@
+logs
+.venv
+reports
+.idea
+tests
+.gitignore
+.dockerignore
+Dockerfile
+example.env
