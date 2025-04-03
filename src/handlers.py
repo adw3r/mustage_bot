@@ -29,6 +29,15 @@ async def start_handler(message: Message):
     )
     return
 
+# /health command
+@router.message(Command('health'))
+async def start_handler(message: Message):
+    response = await Api.test_root()
+    await message.answer(
+        f"{response.text = } {Api.URI = }", reply_markup=keyboards.main_menu()
+    )
+    return
+
 # Get payment
 @router.message(MyFilter(my_text='Получить отчет'))
 async def get_payments(message: Message, state: FSMContext):
@@ -36,6 +45,8 @@ async def get_payments(message: Message, state: FSMContext):
     await message.answer(
         "Введите дату с которой формировать отчет формата dd.mm.yyyy:", reply_markup=keyboards.back_to_menu()
     )
+
+    logger.info(f'{state = }')
     await state.set_state(GetPayments.created_at_first)
     return
 
@@ -43,18 +54,42 @@ async def get_payments(message: Message, state: FSMContext):
 @router.message(GetPayments.created_at_first)
 async def get_payments_created_at_first(message: Message, state: FSMContext):
     if await back_to_menu(message, state):return
+    date_is_valid = await is_valid_dateformat(message)
+    if not date_is_valid:
+        await state.clear()
+        return
+
     await message.answer(
         "Введите дату по которую формировать отчет формата dd.mm.yyyy:",
         reply_markup=keyboards.back_to_menu(),
     )
+
     await state.update_data(created_at_first=message.text)
     await state.set_state(GetPayments.created_at_second)
+    logger.info(f'{state = }')
     return
+
+
+async def is_valid_dateformat(message):
+    try:
+        schemas.PaymentCreate.parse_date(message.text)
+    except ValueError:
+        await message.answer(
+            "Ошибка ввода. Введите дату в формaте dd.mm.yyyy",
+            reply_markup=keyboards.main_menu(),
+        )
+        return False
+    return True
 
 
 @router.message(GetPayments.created_at_second)
 async def get_payments_created_at_second(message: Message, state: FSMContext):
     if await back_to_menu(message, state):return
+    date_is_valid = await is_valid_dateformat(message)
+    if not date_is_valid:
+        await state.clear()
+        return
+
     await state.update_data(created_at_second=message.text)
     await message.answer(
         "Формирую отчет",
@@ -82,6 +117,7 @@ async def get_payments_created_at_second(message: Message, state: FSMContext):
         await message.answer(
             "❌ Неизвестная ошибка!", reply_markup=keyboards.back_to_menu()
         )
+    logger.info(f'{state = }')
     await state.clear()
     return
 
@@ -142,6 +178,11 @@ async def add_expense_name(message: Message, state: FSMContext):
 @router.message(AddPayment.created_at)
 async def add_expense_date(message: Message, state: FSMContext):
     if await back_to_menu(message, state):return
+    date_is_valid = await is_valid_dateformat(message)
+    if not date_is_valid:
+        await state.clear()
+        return
+
 
     await state.update_data(created_at=message.text)
     await message.answer("Введите сумму расхода (в грн):", reply_markup=keyboards.back_to_menu())
